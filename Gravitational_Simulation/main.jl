@@ -5,8 +5,8 @@ using FFMPEG
 using JSON
 
 #=
-長さ:m, 質量:kg, 時間:s, 角度:rad(jsonはdeg)
-intervalはdtの倍数、tEndはintervalの倍数でなければならない
+length:m, mass:kg, time:s, angle:rad(deg in json)
+(interval must be a multiple of dt, tEnd must be a multiple of interval)
 =#
 
 
@@ -23,52 +23,52 @@ NAMEINDEX = Dict(
     8 => "uranus",
     9 => "neptune"
 )
-colors = [:blue, :black, :gold, :blue, :red, :brown, :bisque4, :gray, :blue] #惑星の色
-G = 6.67430e-11 #万有引力定数
-AU = 1.495978e11 #天文単位
+colors = [:orange, :black, :gold, :blue, :red, :brown, :bisque4, :gray, :blue] #惑星の色
+G = 6.67430e-11 #gravitational constant (G)
+AU = 1.495978e11 #AU
 
-# <---ケプラーの法則を利用して位置と速度を求める--->
-#平均近点角(M)を求める
+# <---Using Kepler's Law to find position and velocity--->
+#Find the mean perigee angle (M)
 function calcM(m0, p, t)
     M = m0 + 2π * (t - EPOCH) / p
     return M
 end
-#離心近点角(E)を求める
+#Find the eccentric proximal angle (E)
 function calcE(M, e)
     E = M
-    # ニュートン法
+    # Newton's method
     for i in 1:5
         E = E - (M - E + e * sin(E)) / (e * cos(E) - 1.0)
     end
     return E
 end
-# 位置と速度を求める
+# Find position and velocity
 function calcPosAndVel(data, t)
-    IN = data["IN"] #軌道傾斜角
-    OM = data["OM"] #昇交点黄経
-    W = data["W"] #近日点引数
-    a = data["A"] #軌道長半径
-    e = data["EC"] #離心率
-    m0 = data["MA"] #元期平均近点角
-    p = data["PR"] #公転周期(日)
+    IN = data["IN"] #orbital inclination
+    OM = data["OM"] #ascending necliptic longitude
+    W = data["W"] #perihelion argument
+    a = data["A"] #semi-major axis
+    e = data["EC"] #eccentricity
+    m0 = data["MA"] #Meta-period average near-point angle
+    p = data["PR"] #Orbital period (days)
 
-    E = calcE(calcM(m0,p,t), e) #離心近点角
+    E = calcE(calcM(m0,p,t), e) #eccentric anomaly
 
-    #軌道面上での座標(X,Y)を求める
+    #Find the coordinates (X,Y) on the orbital plane
     eee = 1.0 - e^2
-    X = a * (cos(E) -e) #原点を太陽にする
+    X = a * (cos(E) -e) #Make the origin the sun
     Y = a * sqrt(eee) * sin(E) 
 
-    r = hypot(X,Y) #太陽との距離
-    v = sqrt(G * SUN_M * (2/r - 1/a)) #軌道速度
+    r = hypot(X,Y) #Distance from the Sun
+    v = sqrt(G * SUN_M * (2/r - 1/a)) #orbital velocity
 
-    #軌道速度をxy成分に分解
-    oX = X + a*e #原点を中心に戻す
+    #Decompose orbital velocity into xy components
+    oX = X + a*e
     c = 1.0 / hypot(Y, eee * oX)
     VX = -v * Y * c
     VY = v * oX * eee * c
 
-    #軌道面座標を日心黄道座標に変換
+    #Convert orbital plane coordinates to heliocentric ecliptic coordinates
     A = [
         cos(OM) -sin(OM) 0.0
         sin(OM) cos(OM) 0.0
@@ -97,42 +97,41 @@ function calcPosAndVel(data, t)
     return pos, vel
 end
 
-# <---N体シミュレーション--->
-# 加速度を取得
+# <---N body simulation--->
+# get acc
 function getAcc(pos, mass , G)
     x = pos[:,1,1]
     y = pos[:,2,1]
     z = pos[:,3,1]
 
-    #天体間の距離
+    #Distance between celestial bodies
     dx = x' .- x
     dy = y' .- y
     dz = z' .- z
 
-    #距離の3乗の逆数
+    #Inverse of the cube of the distance
     inv_r3 = (dx.^2 .+ dy.^2 .+ dz.^2 .+ 1.0e-15).^(-1.5)
 
-    #加速度
+    #acc
     ax = G * (dx .* inv_r3) * mass
     ay = G * (dy .* inv_r3) * mass
     az = G * (dz .* inv_r3) * mass
 
-    #連結
     return hcat(ax,ay,az)
 end
-function nBody(N, mass, pos, vel)
-    tEnd = 60.0 * 60.0 * 24.0 * 360 #終了時間
+function nBody(N, mass, pos, vel, tEnd, dt)
+    tEnd = 60.0 * 60.0 * 24.0 * 360 #endtime
     dt = 60.0 * 60.0
-    vel .-= mean(mass .* vel) / mean(mass) #重心系
+    vel .-= mean(mass .* vel) / mean(mass) #center of mass system
     acc = getAcc(pos, mass, G)
-    Nt = Int(ceil(tEnd/dt)) #ステップ数
+    Nt = Int(ceil(tEnd/dt)) #number of steps
     
-    #行列　[天体数、 3d、 Nt+1]
     poses_nbody_save = zeros((N,3,Nt+1))
 	poses_nbody_save[:,:,1] = pos
 
+    print("Simulated in")
     @time for i in 1:Nt
-        #リープ・フロッグ法
+        #Leapfrog methodc
 		vel += acc * dt/2.0
 		pos += vel * dt
 		acc = getAcc( pos, mass, G)
@@ -141,19 +140,13 @@ function nBody(N, mass, pos, vel)
         poses_nbody_save[:,:,i+1] = pos
     end
 
-    @time p1 = plotAll(N, poses_nbody_save, tEnd, dt, 5.4)
-    @time p2, anim2 = scatterAll(N, poses_nbody_save, tEnd, dt, 5.4, 864000, true)
-
-    @time display(p1)
-    @time display(p2)
-    gif(anim2, fps=10, "images/scatter.gif")
-    #savefig("images/plot.png")
+    return poses_nbody_save
 
 end
 
-# 全てプロット
-function plotAll(N, pos_save, tEnd, dt, range)
-    p = scatter([], [], xlims=(-range,range), ylims=(-range,range), title="Positions", xlabel="x(au)", ylabel="y(au)", aspect_ratio=:equal, legend=false)
+# Plot with lines
+function plotAll(N, pos_save, tEnd, dt, range, title)
+    p = scatter([], [], xlims=(-range,range), ylims=(-range,range), title=title, xlabel="x(au)", ylabel="y(au)", aspect_ratio=:equal, legend=false)
     for i in 2:N
         X = pos_save[i,1,:] ./ AU
         Y = pos_save[i,2,:] ./ AU
@@ -161,9 +154,9 @@ function plotAll(N, pos_save, tEnd, dt, range)
     end
     return p
 end
-# 全て点でプロット
-function scatterAll(N, pos_save, tEnd, dt, range, interval, animate)
-    p = scatter([], [], xlims=(-range,range), ylims=(-range,range), title="Positions(All)", xlabel="x", ylabel="y", aspect_ratio=:equal, legend=false)
+# Plot with dots
+function scatterAll(N, pos_save, tEnd, dt, range, interval, animate, title)
+    p = scatter([], [], xlims=(-range,range), ylims=(-range,range), title=title, xlabel="x", ylabel="y", aspect_ratio=:equal, legend=false)
     step = Int(interval / dt)
     pos_save[:,:,:] ./= AU
     if animate
@@ -187,14 +180,14 @@ function scatterAll(N, pos_save, tEnd, dt, range, interval, animate)
         return p, nothing
     end
 end
-#元期軌道要素のデータを読み込み、ラジアンに変換
+#Load orbits data, and convert from degree to radian
 function loadData(epoch)
-    file = JSON.parsefile("./nasa_data.json")
+    file = JSON.parsefile("../Resources/nasa_data.json")
     planets = file[epoch]
     for (key, _s) in planets
-        if key != "epoch" && key != "G" && key != "sun_m" # 惑星以外の項目は除く
-            for (e, value) in planets[key] # 各惑星について
-                if e == "IN" || e == "OM" || e == "W" || e == "MA" # 角度以外の項目は除く
+        if key != "epoch" && key != "G" && key != "sun_m" 
+            for (e, value) in planets[key]
+                if e == "IN" || e == "OM" || e == "W" || e == "MA"
                     planets[key][e] = deg2rad(value)
                 end
             end
@@ -208,27 +201,43 @@ function main()
     global EPOCH
     global SUN_M
 
+    # 1.Load orbit element data from json file and convert degrees to radians
     planets = loadData("2024-04-01")
     EPOCH = planets["epoch"]
     SUN_M = planets["sun_m"]
+    
 
-    N = 6
-    mass = zeros(N)
+    N = 6 #The number of planets + 1 (sun)
+    mass = zeros(N) #List of mass
     mass[1] = SUN_M
-    pos = zeros((N,3))
-    vel = zeros((N,3))
+    pos = zeros((N,3)) #List of initial positions
+    vel = zeros((N,3)) #List of initial velocities
+    vel[1,:] = [
+        10000.0
+        10000.0
+        0
+    ]
+    
 
+    # 2.Calculate initial positions and velocities of the planets
     for i in 2:N
         data = planets[NAMEINDEX[i]]
         mass[i] = data["mass"]
         pos[i,:], vel[i,:] = calcPosAndVel(data, EPOCH)
     end
-    #=
-    開始時刻は元期でなくてもいいが、誤差を考えると元期に近い方が望ましい
-    =#
 
-    nBody(N, mass, pos, vel)
+    # 3.Simulate the motions of planets
+    tEnd = 60.0 * 60.0 * 24.0 * 360 #Endtime
+    dt = 60.0 * 60.0 #Delta time
+    poses_nbody_save = nBody(N, mass, pos, vel, tEnd, dt)
+
+    # 4.Plot
+    p1 = plotAll(N, poses_nbody_save, tEnd, dt, 5.4, "Planet Orbits")
+    p2, anim2 = scatterAll(N, poses_nbody_save, tEnd, dt, 5.4, 864000, true, "Planet Motinos")
+    display(p1)
+    display(p2)
+    gif(anim2, fps=10, "./images/scattered.gif")
 end
 
-gr() #Plotのバックエンドを指定（デフォルト）
+gr()
 main()
