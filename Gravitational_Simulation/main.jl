@@ -120,8 +120,6 @@ function getAcc(pos, mass , G)
     return hcat(ax,ay,az)
 end
 function nBody(N, mass, pos, vel, tEnd, dt)
-    tEnd = 60.0 * 60.0 * 24.0 * 360 #endtime
-    dt = 60.0 * 60.0
     vel .-= mean(mass .* vel) / mean(mass) #center of mass system
     acc = getAcc(pos, mass, G)
     Nt = Int(ceil(tEnd/dt)) #number of steps
@@ -212,11 +210,6 @@ function main()
     mass[1] = SUN_M
     pos = zeros((N,3)) #List of initial positions
     vel = zeros((N,3)) #List of initial velocities
-    vel[1,:] = [
-        10000.0
-        10000.0
-        0
-    ]
     
 
     # 2.Calculate initial positions and velocities of the planets
@@ -233,10 +226,11 @@ function main()
 
     # 4.Plot
     p1 = plotAll(N, poses_nbody_save, tEnd, dt, 5.4, "Planet Orbits")
-    p2, anim2 = scatterAll(N, poses_nbody_save, tEnd, dt, 5.4, 864000, true, "Planet Motinos")
+    scatter_interval = 864000
+    p2, anim2 = scatterAll(N, poses_nbody_save, tEnd, dt, 5.4, scatter_interval, true, "Planet Motinos")
     display(p1)
     display(p2)
-    gif(anim2, fps=10, "./images/scattered.gif")
+    gif(anim2, fps=10, "./images/$N-$tEnd-$dt-$scatter_interval.gif")
 end
 
 gr()
