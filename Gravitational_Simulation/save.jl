@@ -50,7 +50,7 @@ function nBodySave(N, mass, pos, vel, tEnd, dt, chunk_size)
     acc = getAcc(pos, mass, G)
     Nt = Int(ceil(tEnd/dt)) #number of steps
 
-    f = h5open("./results/dt1hr_tEnd1080d/all.h5", "w")
+    f = h5open("./results/dt1hr_tEnd1080d/jupiter.h5", "w")
 
     print("Simulated in")
     poses_nbody_save = zeros((N,3,chunk_size)) #Initial positions are not included
@@ -95,7 +95,7 @@ end
 function main()
     EPOCH = "2024-04-01"
 
-    N = 9 #The number of planets + 1 (sun)
+    N = 2 #The number of planets + 1 (sun)
     mass = zeros(N) #List of mass
     mass[1] = loadData("", EPOCH, true)
     pos = zeros((N,3)) #List of initial positions
@@ -104,7 +104,7 @@ function main()
 
     # 2.Calculate initial positions and velocities of the planets
     for i in 2:N
-        pos[i,:], vel[i,:], mass[i] = loadData(NAMEINDEX[i], EPOCH, false)
+        pos[i,:], vel[i,:], mass[i] = loadData("jupiter", EPOCH, false)
     end
 
     # 3.Simulate the motions of planets
