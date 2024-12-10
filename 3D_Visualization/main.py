@@ -54,7 +54,7 @@ class App(tk.Frame):
             "mercury": "#555588", "venus": "#888800", "earth": "#5555ff", "mars": "#ff0000",
             "jupiter": "#a9569c", "saturn": "#a98c56", "uranus": "#0fcab3", "neptune": "#008cff"
         }
-        file = open("./Resources/data.json", "r")
+        file = open("./data.json", "r")
         data = json.load(file)[date]
         self.planets = [
             Planet(
