@@ -117,7 +117,7 @@ function main(bodies, exclude=false)
     included_planets = Vector{String}(undef,N)
     for i in 1:NUMBER_OF_BODIES
         is_included = PLANETS[i] in bodies
-        if (is_included*!exclude+!is_included*exclude) == 1 # XOR
+        if (is_included&!exclude)|(!is_included&exclude) # XOR
             pos[next,:], vel[next,:], mass[next] = loadData(PLANETS[i], EPOCH)
             included_planets[next] = PLANETS[i]
             next += 1
