@@ -10,7 +10,7 @@ length:km, mass:kg, time:s, angle:rad(deg in json)
 (interval must be a multiple of dt, tEnd must be a multiple of interval)
 =#
 
-colors = [:orange, :black, :gold, :blue, :red, :brown, :bisque4, :gray, :blue] #惑星の色
+colors = [:orange, :black, :gold, :blue, :red, :brown, :bisque4, :gray, :blue, :black] #惑星の色
 AU = 1.495978e8 #AU
 
 function plotAllWithChunks(N, file, tEnd, dt, range, title, chunk_size)
@@ -28,7 +28,7 @@ function plotAllWithChunks(N, file, tEnd, dt, range, title, chunk_size)
 end
 
 function main()
-    f = h5open(".results/dt1hr_tEnd1080d/all.h5", "r")
+    f = h5open("./results/dt1hr_tEnd3600d/k_all.h5", "r")
     N = read(f, "/params/n")
     tEnd = read(f, "/params/tend")
     dt = read(f, "/params/dt")
