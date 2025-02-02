@@ -134,10 +134,19 @@ function nBodySaveDistance(N, mass, pos, vel, tEnd, dt, chunk_size, target_index
             pos += vel * dt
             acc = getAcc( pos, mass, G)
             vel += acc * dt/2.0
+
+            moon = 9
+            # For Earth and Moon
+            barycenter = [
+                pos[4,1] * mass[4] + pos[moon,1] * mass[moon]
+                pos[4,2] * mass[4] + pos[moon,2] * mass[moon]
+                pos[4,3] * mass[4] + pos[moon,3] * mass[moon]
+            ] ./ (mass[4] + mass[moon])
+
             distance_sun_target[i] = hypot(
-                pos[1,1] - pos[target_index,1],
-                pos[1,2] - pos[target_index,2],
-                pos[1,3] - pos[target_index,3],
+                pos[1,1] - barycenter[1],
+                pos[1,2] - barycenter[2],
+                pos[1,3] - barycenter[3],
             )
         end
         write(f, "/data/$chunk", distance_sun_target)
@@ -246,18 +255,18 @@ function main(bodies, exclude=false)
         is_included = PLANETS[i] in bodies
         if (is_included&!exclude)|(!is_included&exclude) # XOR
             pos[next,:], vel[next,:], mass[next] = loadVectors(PLANETS[i], epoch) # position, velocity, mass
-            elements[next,:] = loadElements(PLANETS[i], epoch) # orbital elements
+            #elements[next,:] = loadElements(PLANETS[i], epoch) # orbital elements
             included_planets[next] = PLANETS[i]
             next += 1
         end
     end
 
     # 3.Simulate the motions of planets
-    tEnd = 60.0 * 60.0 * 24.0 * 360 * 10 #Endtime
+    tEnd = 60.0 * 60.0 * 24.0 * 360 * 1000 #Endtime
     dt = 60.0 * 60.0 #Delta time
-    #nBodySave(N, mass, pos, vel, tEnd, dt, 8640, generate_folder_name(dt, tEnd), "n_all")
-    #nBodySaveDistance(N, mass, pos, vel, tEnd, dt, 8640, 4 ,generate_folder_name(dt, tEnd), "n_distance_sun_earth")
-    keplerSave(N, elements, tEnd, dt, 8640, generate_folder_name(dt, tEnd), "k_all")
+    #nBodySave(N, mass, pos, vel, tEnd, dt, 8640, generate_folder_name(dt, tEnd), "n_all_ex_moon")
+    nBodySaveDistance(N, mass, pos, vel, tEnd, dt, 8640, 4 ,generate_folder_name(dt, tEnd), "n_distance_sun_earth_bary_ex_jupiter")
+    #keplerSave(N, elements, tEnd, dt, 8640, generate_folder_name(dt, tEnd), "k_all")
 end
 
 EPOCH = 2460401.5
@@ -266,6 +275,6 @@ PLANETS = ["sun", "mercury", "venus", "earth", "mars", "jupiter", "saturn", "ura
 
 # Kepler does not support Moon
 main(
-    ["sun", "mercury", "venus", "earth", "mars", "jupiter", "saturn", "uranus", "neptune"],
+    ["sun", "mercury", "venus", "earth", "mars", "jupiter", "saturn", "uranus", "neptune", "moon"],
     false
 )
