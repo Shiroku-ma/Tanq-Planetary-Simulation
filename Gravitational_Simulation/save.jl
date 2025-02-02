@@ -273,8 +273,10 @@ EPOCH = 2460401.5
 NUMBER_OF_BODIES = 10
 PLANETS = ["sun", "mercury", "venus", "earth", "mars", "jupiter", "saturn", "uranus", "neptune", "moon"]
 
-# Kepler does not support Moon
-main(
-    ["sun", "mercury", "venus", "earth", "mars", "jupiter", "saturn", "uranus", "neptune", "moon"],
-    false
-)
+if abspath(PROGRAM_FILE) == @__FILE__
+    # Kepler does not support Moon
+    main(
+        ["sun", "mercury", "venus", "earth", "mars", "jupiter", "saturn", "uranus", "neptune", "moon"],
+        false
+    )
+end
