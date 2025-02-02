@@ -22,7 +22,6 @@ function getAcc(N, pos, mass , G)
     ax = zeros(N)
     ay = zeros(N)
     az = zeros(N)
-    inv_r3_gm = 0.0
     @inbounds for j in 1:N
         @simd for i in 1:N
             inv_r3_gm = (dx[i,j]^2 + dy[i,j]^2 + dz[i,j]^2 + 1.0e-15)^(-1.5) * G * mass[i]
