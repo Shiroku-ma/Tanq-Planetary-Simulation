@@ -7,31 +7,29 @@ include("save.jl")
 
 function getAcc(N, pos, mass , G)
     #Distance between celestial bodies
-    dx = zeros(N,N)
-    dy = zeros(N,N)
-    dz = zeros(N,N)
-    @inbounds for j in 1:N
-        @simd for i in 1:N
-            dx[i,j] = pos[i,1] - pos[j,1]
-            dy[i,j] = pos[i,2] - pos[j,2]
-            dz[i,j] = pos[i,3] - pos[j,3]
+    dpos = zeros(N,N,3)
+    @inbounds for dim in 1:3
+        @inbounds for j in 1:N-1
+            @inbounds for i in j+1:N
+                temp = pos[i,dim] - pos[j,dim]
+                dpos[i,j,dim] = temp
+                dpos[j,i,dim] = -temp
+            end
         end
     end
 
     #Inverse of the cube of the distance
-    ax = zeros(N)
-    ay = zeros(N)
-    az = zeros(N)
+    acc = zeros(N,3)
     @inbounds for j in 1:N
-        @simd for i in 1:N
-            inv_r3_gm = (dx[i,j]^2 + dy[i,j]^2 + dz[i,j]^2 + 1.0e-15)^(-1.5) * G * mass[i]
-            ax[j] += dx[i,j] * inv_r3_gm
-            ay[j] += dy[i,j] * inv_r3_gm
-            az[j] += dz[i,j] * inv_r3_gm
+        @inbounds for i in 1:N
+            inv_r3_gm = (dpos[i,j,1]^2 + dpos[i,j,2]^2 + dpos[i,j,3]^2 + 1.0e-15)^(-1.5) * G * mass[i]
+            @inbounds for dim in 1:3
+                acc[j,dim] += dpos[i,j,dim] * inv_r3_gm
+            end
         end
     end
 
-    return hcat(ax,ay,az)
+    return acc
 end
 
 ####### Simulation Function #######
@@ -42,7 +40,6 @@ function nBodySave(N, mass, pos, vel, tEnd, dt, chunk_size, foldername, filename
 
     f = h5open("./results/$(foldername)/$(filename).h5", "w")
 
-    print("Simulated in")
     poses_nbody_save = zeros((N,3,chunk_size)) #Initial positions are not included
     @time for chunk in 1:Int(Nt/chunk_size)
         for i in 1:chunk_size
@@ -91,9 +88,9 @@ function main(bodies, exclude=false)
     end
 
     # 3.Simulate the motions of planets
-    tEnd = 60.0 * 60.0 * 24.0 * 360 * 1 #Endtime
+    tEnd = 60.0 * 60.0 * 24.0 * 360 * 10 #Endtime
     dt = 60.0 * 60.0 #Delta time
-    nBodySave(N, mass, pos, vel, tEnd, dt, 8640, "tmp", "test")
+    nBodySave(N, mass, pos, vel, tEnd, dt, 8640, "tmp", "speedtest")
 end
 
 if abspath(PROGRAM_FILE) == @__FILE__
