@@ -2,4 +2,4 @@ venv
 __pycache__
 Jupyter
 .DS_STORE
-Gravitational_Simulation/scenarios/**/*.h5
+*.h5
