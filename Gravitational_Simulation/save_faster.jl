@@ -63,6 +63,50 @@ function nBodySave(N, mass, pos, vel, tEnd, dt, chunk_size, foldername, filename
 
     close(f)
 end
+function nBodySaveDistance(N, mass, pos, vel, tEnd, dt, chunk_size, target_index, foldername, filename)
+    vel .-= mean(mass .* vel) / mean(mass) #center of mass system
+    acc = getAcc(N, pos, mass, G)
+    Nt = Int(ceil(tEnd/dt)) #number of steps
+
+    f = h5open("./results/$(foldername)/$(filename).h5", "w")
+
+    distance_sun_target = zeros(chunk_size)
+    @time for chunk in 1:Int(Nt/chunk_size)
+        for i in 1:chunk_size
+            for j in eachindex(acc)
+                vel[j] += acc[j] * dt/2.0
+                pos[j] += vel[j] * dt
+            end
+            acc = getAcc(N,pos, mass, G)
+            for j in eachindex(acc)
+                vel[j] += acc[j] * dt/2.0
+            end
+
+            #=
+            moon = 10
+            # For Earth and Moon
+            barycenter = [
+                pos[target_index,1] * mass[target_index] + pos[moon,1] * mass[moon]
+                pos[target_index,2] * mass[target_index] + pos[moon,2] * mass[moon]
+                pos[target_index,3] * mass[target_index] + pos[moon,3] * mass[moon]
+            ] ./ (mass[target_index] + mass[moon])
+            =#
+            distance_sun_target[i] = hypot(
+                pos[1,1] - pos[target_index,1],
+                pos[1,2] - pos[target_index,2],
+                pos[1,3] - pos[target_index,3],
+            )
+        end
+        write(f, "/data/$chunk", distance_sun_target)
+    end
+
+    write(f, "/params/n", N)
+    write(f, "/params/tend", tEnd)
+    write(f, "/params/dt", dt)
+    write(f, "/params/chunksize", chunk_size)
+
+    close(f)
+end
 
 function main(bodies, exclude=false)
     epoch = "2024-04-01"
@@ -88,14 +132,15 @@ function main(bodies, exclude=false)
     end
 
     # 3.Simulate the motions of planets
-    tEnd = 60.0 * 60.0 * 24.0 * 360 * 10 #Endtime
+    tEnd = 60.0 * 60.0 * 24.0 * 360 * 1000 #Endtime
     dt = 60.0 * 60.0 #Delta time
-    nBodySave(N, mass, pos, vel, tEnd, dt, 8640, "tmp", "speedtest")
+    #nBodySave(N, mass, pos, vel, tEnd, dt, 8640, generate_folder_name(dt, tEnd), "n_distance_sun_earth_bary_ex_jupiter")
+    nBodySaveDistance(N, mass, pos, vel, tEnd, dt, 86400, 4, generate_folder_name(dt, tEnd), "n_distance_sun_earth_ex_moon")
 end
 
 if abspath(PROGRAM_FILE) == @__FILE__
     main(
-        ["sun", "mercury", "venus", "earth", "mars", "jupiter", "saturn", "uranus", "neptune", "moon"],
-        false
+        ["moon"],
+        true
     )
 end
