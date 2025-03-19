@@ -63,7 +63,7 @@ function nBodySave(N, mass, pos, vel, tEnd, dt, chunk_size, foldername, filename
 
     close(f)
 end
-function nBodySaveDistance(N, mass, pos, vel, tEnd, dt, chunk_size, target_index, foldername, filename)
+function nBodySaveDistance(N, mass, pos, vel, tEnd, dt, chunk_size, target_index, moon_index, foldername, filename)
     vel .-= mean(mass .* vel) / mean(mass) #center of mass system
     acc = getAcc(N, pos, mass, G)
     Nt = Int(ceil(tEnd/dt)) #number of steps
@@ -82,19 +82,18 @@ function nBodySaveDistance(N, mass, pos, vel, tEnd, dt, chunk_size, target_index
                 vel[j] += acc[j] * dt/2.0
             end
 
-            #=
-            moon = 10
-            # For Earth and Moon
+            # Calculate distance between the sun and the barycenter of a planet and its moon
+            # The planet and its moon are designated by index
+            # moon_index should be the same as target_index when the moon is excluded
             barycenter = [
-                pos[target_index,1] * mass[target_index] + pos[moon,1] * mass[moon]
-                pos[target_index,2] * mass[target_index] + pos[moon,2] * mass[moon]
-                pos[target_index,3] * mass[target_index] + pos[moon,3] * mass[moon]
-            ] ./ (mass[target_index] + mass[moon])
-            =#
+                pos[target_index,1] * mass[target_index] + pos[moon_index,1] * mass[moon_index]
+                pos[target_index,2] * mass[target_index] + pos[moon_index,2] * mass[moon_index]
+                pos[target_index,3] * mass[target_index] + pos[moon_index,3] * mass[moon_index]
+            ] ./ (mass[target_index] + mass[moon_index])
             distance_sun_target[i] = hypot(
-                pos[1,1] - pos[target_index,1],
-                pos[1,2] - pos[target_index,2],
-                pos[1,3] - pos[target_index,3],
+                pos[1,1] - barycenter[1],
+                pos[1,2] - barycenter[2],
+                pos[1,3] - barycenter[3],
             )
         end
         write(f, "/data/$chunk", distance_sun_target)
@@ -134,13 +133,15 @@ function main(bodies, exclude=false)
     # 3.Simulate the motions of planets
     tEnd = 60.0 * 60.0 * 24.0 * 360 * 1000 #Endtime
     dt = 60.0 * 60.0 #Delta time
-    #nBodySave(N, mass, pos, vel, tEnd, dt, 8640, generate_folder_name(dt, tEnd), "n_distance_sun_earth_bary_ex_jupiter")
-    nBodySaveDistance(N, mass, pos, vel, tEnd, dt, 86400, 4, generate_folder_name(dt, tEnd), "n_distance_sun_earth_ex_moon")
+
+    #nBodySave(N, mass, pos, vel, tEnd, dt, 86400, generate_folder_name(dt, tEnd), "n_all")
+    nBodySaveDistance(N, mass, pos, vel, tEnd, dt, 86400, 4, 9, generate_folder_name(dt, tEnd), "n_distance_sun_earth_bary_ex_mars")
+    #keplerSave(N, elements, tEnd, dt, 86400, generate_folder_name(dt, tEnd), "k_all_bary")
 end
 
 if abspath(PROGRAM_FILE) == @__FILE__
     main(
-        ["moon"],
+        ["mars"],
         true
     )
 end
