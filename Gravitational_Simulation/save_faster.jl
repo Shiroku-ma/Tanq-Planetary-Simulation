@@ -5,9 +5,10 @@ using HDF5
 
 include("save.jl")
 
-function getAcc(N, pos, mass , G)
+function getAcc(N, pos, mass, dpos, acc, G)
+    fill!(acc, 0.0)
+
     #Distance between celestial bodies
-    dpos = zeros(N,N,3)
     @inbounds for dim in 1:3
         @inbounds for j in 1:N-1
             @inbounds for i in j+1:N
@@ -19,7 +20,6 @@ function getAcc(N, pos, mass , G)
     end
 
     #Inverse of the cube of the distance
-    acc = zeros(N,3)
     @inbounds for j in 1:N
         @inbounds for i in 1:N
             inv_r3_gm = (dpos[i,j,1]^2 + dpos[i,j,2]^2 + dpos[i,j,3]^2 + 1.0e-15)^(-1.5) * G * mass[i]
@@ -64,20 +64,24 @@ function nBodySave(N, mass, pos, vel, tEnd, dt, chunk_size, foldername, filename
     close(f)
 end
 function nBodySaveDistance(N, mass, pos, vel, tEnd, dt, chunk_size, target_index, moon_index, foldername, filename)
+    dpos = zeros(N,N,3)
+    acc = zeros(N,3)
     vel .-= mean(mass .* vel) / mean(mass) #center of mass system
-    acc = getAcc(N, pos, mass, G)
+    acc = getAcc(N, pos, mass, dpos, acc, G)
     Nt = Int(ceil(tEnd/dt)) #number of steps
 
     f = h5open("./results/$(foldername)/$(filename).h5", "w")
 
     distance_sun_target = zeros(chunk_size)
+    barycenter = zeros(3)
+    barymass = 0.0
     @time for chunk in 1:Int(Nt/chunk_size)
         for i in 1:chunk_size
             for j in eachindex(acc)
                 vel[j] += acc[j] * dt/2.0
                 pos[j] += vel[j] * dt
             end
-            acc = getAcc(N,pos, mass, G)
+            acc = getAcc(N, pos, mass, dpos, acc, G)
             for j in eachindex(acc)
                 vel[j] += acc[j] * dt/2.0
             end
@@ -85,18 +89,17 @@ function nBodySaveDistance(N, mass, pos, vel, tEnd, dt, chunk_size, target_index
             # Calculate distance between the sun and the barycenter of a planet and its moon
             # The planet and its moon are designated by index
             # moon_index should be the same as target_index when the moon is excluded
-            barycenter = [
-                pos[target_index,1] * mass[target_index] + pos[moon_index,1] * mass[moon_index]
-                pos[target_index,2] * mass[target_index] + pos[moon_index,2] * mass[moon_index]
-                pos[target_index,3] * mass[target_index] + pos[moon_index,3] * mass[moon_index]
-            ] ./ (mass[target_index] + mass[moon_index])
+            barymass = mass[target_index] + mass[moon_index]
+            barycenter[1] = (pos[target_index,1] * mass[target_index] + pos[moon_index,1] * mass[moon_index]) / barymass
+            barycenter[2] = (pos[target_index,2] * mass[target_index] + pos[moon_index,2] * mass[moon_index]) / barymass
+            barycenter[3] = (pos[target_index,3] * mass[target_index] + pos[moon_index,3] * mass[moon_index]) / barymass
             distance_sun_target[i] = hypot(
                 pos[1,1] - barycenter[1],
                 pos[1,2] - barycenter[2],
                 pos[1,3] - barycenter[3],
             )
         end
-        write(f, "/data/$chunk", distance_sun_target)
+        write(f, "/data/" * string(chunk), distance_sun_target)
     end
 
     write(f, "/params/n", N)
@@ -135,13 +138,17 @@ function main(bodies, exclude=false)
     dt = 60.0 * 60.0 #Delta time
 
     #nBodySave(N, mass, pos, vel, tEnd, dt, 86400, generate_folder_name(dt, tEnd), "n_all")
-    nBodySaveDistance(N, mass, pos, vel, tEnd, dt, 86400, 4, 9, generate_folder_name(dt, tEnd), "n_distance_sun_earth_bary_ex_mars")
+    nBodySaveDistance(
+        N, mass, pos, vel, tEnd, dt,
+        86400, findfirst(x->x=="earth", included_planets), findfirst(x->x=="moon", included_planets),
+        generate_folder_name(dt, tEnd), "n_distance_sun_earth_bary2"
+        )
     #keplerSave(N, elements, tEnd, dt, 86400, generate_folder_name(dt, tEnd), "k_all_bary")
 end
 
 if abspath(PROGRAM_FILE) == @__FILE__
     main(
-        ["mars"],
+        [],
         true
     )
 end
