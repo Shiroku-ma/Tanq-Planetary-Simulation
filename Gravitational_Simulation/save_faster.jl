@@ -134,14 +134,14 @@ function main(bodies, exclude=false)
     end
 
     # 3.Simulate the motions of planets
-    tEnd = 60.0 * 60.0 * 24.0 * 360 * 1000 #Endtime
+    tEnd = 60.0 * 60.0 * 24.0 * 365.25 * 500000 #Endtime
     dt = 60.0 * 60.0 #Delta time
 
     #nBodySave(N, mass, pos, vel, tEnd, dt, 86400, generate_folder_name(dt, tEnd), "n_all")
     nBodySaveDistance(
         N, mass, pos, vel, tEnd, dt,
-        86400, findfirst(x->x=="earth", included_planets), findfirst(x->x=="moon", included_planets),
-        generate_folder_name(dt, tEnd), "n_distance_sun_earth_bary2"
+        876600, findfirst(x->x=="earth", included_planets), findfirst(x->x=="moon", included_planets),
+        "tmp", "n_distance_sun_earth_bary"
         )
     #keplerSave(N, elements, tEnd, dt, 86400, generate_folder_name(dt, tEnd), "k_all_bary")
 end
