@@ -141,14 +141,14 @@ function main(bodies, exclude=false)
     nBodySaveDistance(
         N, mass, pos, vel, tEnd, dt,
         876600, findfirst(x->x=="earth", included_planets), findfirst(x->x=="moon", included_planets),
-        "tmp", "n_distance_sun_earth_bary"
+        "dt1hr_tEnd500000yr", "n_distance_sun_earth_bary_ex_jupiter"
         )
     #keplerSave(N, elements, tEnd, dt, 86400, generate_folder_name(dt, tEnd), "k_all_bary")
 end
 
 if abspath(PROGRAM_FILE) == @__FILE__
     main(
-        [],
+        ["jupiter"],
         true
     )
 end
